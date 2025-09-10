@@ -445,7 +445,7 @@ Training
 X = np.concatenate([lbl.reshape(lbl.shape[0], -1, lbl.shape[2]) for lbl in stc_train_roi], axis=1)
 print(X.shape)  # (n_epochs, sum_vertices_across_labels, n_times)
 # concatenate event labels across session
-y = np.concatenate([epochs_train_ses1.events[:, 2], epochs_train_ses2.events[:, 2]])
+y = np.concatenate([epochs_train_ses01.events[:, 2], epochs_train_ses02.events[:, 2]])
 
 # prepare a series of classifier applied at each time sample
 clf = make_pipeline(
