@@ -118,6 +118,13 @@ mne.viz.plot_alignment(info, trans_fname, subject=subject,
 
 input("Check source space, then close visualization by pressing ENTER ...")
 
+# save src 
+source_dir = op.join(data_dir, 'source_recon')
+os.makedirs(source_dir, exist_ok=True)
+
+src_fname = op.join(source_dir, f'sub-{subject}',f'sub-{subject}_ses-{session}_src.fif')
+mne.write_source_spaces(src_fname, src, overwrite=True)
+
 ######################################################################
 '''
 Step 3. Compute forward solutions
@@ -137,9 +144,6 @@ model = mne.make_bem_model(subject=subject, ico=4,
 bem = mne.make_bem_solution(model)
 
 ### save bem
-source_dir = op.join(data_dir, 'source_recon')
-os.makedirs(source_dir, exist_ok=True)
-
 bem_fname = op.join(source_dir, f'sub-{subject}',f'sub-{subject}_ses-{session}_bem.fif')
 mne.bem.write_bem_solution(bem_fname, bem, overwrite=True)
 print(f"BEM saved as sub-{subject}_ses-{session}_bem.fif")
