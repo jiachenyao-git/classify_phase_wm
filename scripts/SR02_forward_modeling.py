@@ -122,7 +122,7 @@ input("Check source space, then close visualization by pressing ENTER ...")
 source_dir = op.join(data_dir, 'source_recon')
 os.makedirs(source_dir, exist_ok=True)
 
-src_fname = op.join(source_dir, f'sub-{subject}',f'sub-{subject}_ses-{session}_src.fif')
+src_fname = op.join(source_dir, f'sub-{subject}',f'sub-{subject}_src.fif')
 mne.write_source_spaces(src_fname, src, overwrite=True)
 
 ######################################################################
