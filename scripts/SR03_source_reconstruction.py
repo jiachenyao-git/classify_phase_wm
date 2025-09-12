@@ -307,18 +307,28 @@ print('beamformers computed for session 2!')
 del epochs_clas_lcmv_ses01
 del epochs_clas_lcmv_ses02
 
+# drop baseline data
+epochs_train_ses01 = epochs_train_ses01.crop(tmin=0)
+epochs_train_ses02 = epochs_train_ses02.crop(tmin=0)
+epochs_test_ses01 = epochs_test_ses01.crop(tmin=0)
+epochs_test_ses02 = epochs_test_ses02.crop(tmin=0)
+epochs_phas_lcmv_ses01 = epochs_phas_lcmv_ses01.crop(tmin=-1.25, tmax=0)
+epochs_phas_lcmv_ses02 = epochs_phas_lcmv_ses02.crop(tmin=-1.25, tmax=0)
+
 # apply the spatial filters
 # data shape: n_epochs * n_vertices * n_times
 # generator type data can be accessed by next()
 stc_train_ses01 = apply_lcmv_epochs(epochs=epochs_train_ses01, filters=filters_clas_ses01, return_generator=False, )
 stc_train_ses02 = apply_lcmv_epochs(epochs=epochs_train_ses02, filters=filters_clas_ses02, return_generator=False, )
+print('beamformers applied for training set!')
 
 stc_test_ses01 = apply_lcmv_epochs(epochs=epochs_test_ses01, filters=filters_clas_ses01, return_generator=False, )
 stc_test_ses02 = apply_lcmv_epochs(epochs=epochs_test_ses02, filters=filters_clas_ses02, return_generator=False, )
+print('beamformers applied for testing set!')
 
 stc_phas_ses01 = apply_lcmv_epochs(epochs=epochs_phas_lcmv_ses01, filters=filters_phas_ses01, return_generator=False, )
 stc_phas_ses02 = apply_lcmv_epochs(epochs=epochs_phas_lcmv_ses02, filters=filters_phas_ses02, return_generator=False, )
-print('beamformers applied!')
+print('beamformers applied for phase estimate set!')
 
 '''
 #plot the brain and time course
@@ -347,6 +357,7 @@ from mne import extract_label_time_course
 # path to individual freesurfer reconstruction
 mri_dir = op.join(data_dir, 'mri_reconst')
 
+# define rois
 STG = ["G_temp_sup-Lateral", 
        "G_temp_sup-Plan_polar", 
        "G_temp_sup-Plan_tempo",]
@@ -384,30 +395,15 @@ labels_rois = labels_stg + labels_mtg + labels_atl + labels_ifg + labels_ipl
 
 # extract ROI time courses
 # data shape: n_epoch * n_labels (anatomical) * n_vertices * n_times
-stc_train_ses01_rois = mne.extract_label_time_course(stc_train_ses01, labels_rois, src, mode = None, return_generator=False, allow_empty=False)
-stc_train_ses02_rois = mne.extract_label_time_course(stc_train_ses02, labels_rois, src, mode = None, return_generator=False, allow_empty=False)
-
-stc_test_ses01_rois = mne.extract_label_time_course(stc_test_ses01, labels_rois, src, mode = None, return_generator=False, allow_empty=False)
-stc_test_ses02_rois = mne.extract_label_time_course(stc_test_ses02, labels_rois, src, mode = None, return_generator=False, allow_empty=False)
-
-del stc_train_ses01
-del stc_train_ses02
-del stc_test_ses01
-del stc_test_ses02
+def extract_roi_stc(stc, labels, src):
+    stc_roi = mne.extract_label_time_course(stc, 
+                                            labels, 
+                                            src=src, 
+                                            mode = None, 
+                                            return_generator=False, allow_empty=False)
+    return stc_roi
 
 # concatenate ROI time courses across sessions
-stc_train_roi = []
-
-for lbl_idx in range(len(stc_train_ses01_rois[0])): ### loop over each ROI label
-    ### for each label, get the data for all the epochs
-    data1 = np.stack([stc_train_ses01_rois[epo_idx][lbl_idx]
-                      for epo_idx in range(len(stc_train_ses01_rois))], axis=0)
-    data2 = np.stack([stc_train_ses02_rois[epo_idx][lbl_idx]
-                      for epo_idx in range(len(stc_train_ses02_rois))], axis=0)
-    data_concat = np.concatenate([data1, data2], axis=0)
-    stc_train_roi.append(data_concat)   ### shape: n_labels * n_epochs * n_vertices * n_times
-
-
 def concatenate_roi_stc(stc_rois_ses01, stc_rois_ses02):
     stc_concat = []
     for lbl_idx in range(len(stc_rois_ses01[0])):
@@ -420,60 +416,179 @@ def concatenate_roi_stc(stc_rois_ses01, stc_rois_ses02):
     
     return stc_concat
 
-stc_test_roi = concatenate_roi_stc(stc_test_ses01_rois, stc_test_ses02_rois)
-
-# check for the same number of epochs across ROIs
-n_epochs_train = [lbl.shape[0] for lbl in stc_train_roi]
-n_epochs_test = [lbl.shape[0] for lbl in stc_test_roi]
-assert len(set(n_epochs_train)) == 1, "All labels must have same number of epochs for the training set"
-assert len(set(n_epochs_test)) == 1, "All labels must have same number of epochs for the testing set"
-
-'''
-Decoding
-'''
-from sklearn.feature_selection import SelectKBest, f_classif
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-
-from mne.decoding import LinearModel, SlidingEstimator, cross_val_multiscore, get_coef
-
 '''
 Training
 '''
-# prepare data for decoding (n_epochs, sum_vertices_across_labels, n_times)
-X = np.concatenate([lbl.reshape(lbl.shape[0], -1, lbl.shape[2]) for lbl in stc_train_roi], axis=1)
-print(X.shape)  # (n_epochs, sum_vertices_across_labels, n_times)
-# concatenate event labels across session
-y = np.concatenate([epochs_train_ses01.events[:, 2], epochs_train_ses02.events[:, 2]])
+#import sys
+#sys.path.append(os.path.join(os.getcwd(), "scripts"))
 
-# prepare a series of classifier applied at each time sample
-clf = make_pipeline(
-    StandardScaler(),  # z-score normalization
-    SelectKBest(f_classif, k=500),  # select features for speed
-    LinearModel(LogisticRegression(C=1, solver="liblinear")),
-)
-time_decod = SlidingEstimator(clf, scoring="roc_auc")
+from decoding import sliding_logreg_source
+from decoding import pca
+from decoding import get_fft_phase
+from decoding import get_preds
+from decoding import get_phase_per_time
+from decoding import itpc_over_time
+from decoding import plot_itpc_over_time
+from decoding import categorize_phase_by_label
+from decoding import compute_phase_vector
+from decoding import plot_vl
+from decoding import compute_relative_phase
+from decoding import plot_va
 
-# run cross-validated decoding analyses:
-scores = cross_val_multiscore(time_decod, X, y, cv=5, n_jobs=None)
+def prepare_X(stc_roi):
+    '''
+    Parameters:
+    stc_roi: list, roi souce space time course
 
-# plot average decoding scores of 5 splits
-fig, ax = plt.subplots(1)
-ax.plot(epochs_train_ses01.times, scores.mean(0), label="score")
-ax.axhline(0.5, color="k", linestyle="--", label="chance")
-ax.axvline(0, color="k")
-plt.legend()
-plt.show()
+    Returns:
+    X: np.array, data to be fitted, shape: n_epochs, sum_vertices_across_labels, n_times
+    '''
+    X = np.concatenate([lbl.reshape(lbl.shape[0], -1, lbl.shape[2]) for lbl in stc_roi], axis=1)
+    return X
+
+def prepare_y(epochs_ses01, epochs_ses02):
+    '''
+    Parameters:
+    epochs_ses01: mne.Epochs
+    epochs_ses02: mne.Epochs
+
+    Returns:
+    y: np.array, response vector, contains epochs event id
+    '''
+    y = np.concatenate([epochs_ses01.events[:, 2], epochs_ses02.events[:, 2]])
+    return y
 
 '''
-Testing
+Loop over ROIs
 '''
-# prepare data for decoding (n_epochs, sum_vertices_across_labels, n_times)
-X_test = np.concatenate([lbl.reshape(lbl.shape[0], -1, lbl.shape[2]) for lbl in stc_test_roi], axis=1)
-print(X_test.shape)  # (n_epochs, sum_vertices_across_labels, n_times)
+roi_dict = {
+    "rois": labels_rois,
+    "stg": labels_stg,
+    "mtg": labels_mtg,
+    "atl": labels_atl,
+    "ifg": labels_ifg,
+    "ipl": labels_ipl
+}
 
-assert X.shape[1] == X_test.shape[1], 'Training and Testing set should have the same vertices'
+def extract_concat(stc_ses01, stc_ses02, labels, src):
+    roi_ses01 = extract_roi_stc(stc_ses01, labels, src)
+    roi_ses02 = extract_roi_stc(stc_ses02, labels, src)
+    return concatenate_roi_stc(roi_ses01, roi_ses02)
 
-y_pred = time_decod.predict(X_test)
+train_rois, test_rois, phas_rois = {}, {}, {}
+for roi_name, roi_labels in roi_dict.items():
+    train_rois[roi_name] = extract_concat(stc_train_ses01, stc_train_ses02, roi_labels, src)
+    test_rois[roi_name]  = extract_concat(stc_test_ses01,  stc_test_ses02,  roi_labels, src)
+    phas_rois[roi_name]  = extract_concat(stc_phas_ses01,  stc_phas_ses02,  roi_labels, src)
+
+
+y_train = prepare_y(epochs_train_ses01, epochs_train_ses02)
+y_test  = prepare_y(epochs_test_ses01,  epochs_test_ses02)
+y_phase = prepare_y(epochs_phas_lcmv_ses01, epochs_phas_lcmv_ses02)
+
+foi = np.arange(4, 20, 0.1)
+sfreq = 500
+
+decode_results = {}
+for roi_name in roi_dict.keys():
+    # prepare data for decoding
+    # returns n_epochs, sum_vertices_across_labels, n_times
+    X_train = prepare_X(train_rois[roi_name])
+    X_test  = prepare_X(test_rois[roi_name])
+    X_phase = prepare_X(phas_rois[roi_name])
+
+    print(f"Decoding {roi_name} ...")
+    decode_results[roi_name] = sliding_logreg_source(X_train, y_train, X_test, y_test, folds=5)
+
+    # get preds
+    imp_lbl_nb, imp_proba_nb, imp_lbl_b, imp_proba_b = get_preds(decode_results[roi_name])
+
+    # sort phase epochs by event id
+    X_phase_nb = X_phase[y_phase==1]
+    X_phase_b = X_phase[y_phase==2]
+
+    # run pca within roi
+    # return shape: n_epochs, n_times
+    X_phase_nb_pc = pca(X_phase_nb)
+    X_phase_b_pc = pca(X_phase_b)
+
+    # estimate phase angle
+    # return shape: n_foi, n_epochs
+    ang_nb = get_fft_phase(X_phase_nb_pc, foi, sfreq)
+    ang_b = get_fft_phase(X_phase_b_pc, foi, sfreq)
+
+    # at each time point, categorize trials based on decoded label
+    # then assign the phase for those trials to that time point
+    ppt_nb_adj, ppt_nb_n = get_phase_per_time(imp_lbl_nb, ang_nb, 42)
+    ppt_b_adj, ppt_b_n = get_phase_per_time(imp_lbl_b, ang_b, 42)
+
+    # compute itpc over time
+    itpc_nb_adj = itpc_over_time(ppt_nb_adj, foi)
+    itpc_nb_n = itpc_over_time(ppt_nb_n, foi)
+
+    itpc_b_adj = itpc_over_time(ppt_b_adj, foi)
+    itpc_b_n = itpc_over_time(ppt_b_n, foi)
+
+    # plot and save itpc
+    plot_itpc_over_time(itpc_nb_adj, itpc_nb_n, sfreq, foi,
+                    save_path=f"subject-{subject}_itpc_{roi_name}_NB.png",
+                    title=f"subject-{subject}_{roi_name} - Non-binding")
+    plot_itpc_over_time(itpc_b_adj, itpc_b_n, sfreq, foi,
+                    save_path=f"subject-{subject}_itpc_{roi_name}_B.png",
+                    title=f"subject-{subject}_{roi_name} - Binding")
+    
+    # categorize phase estimation data based on predicted labels
+    X_phase_nb_adj, X_phase_nb_n, X_phase_b_adj, X_phase_b_n, X_phase_baseline = categorize_phase_by_label(imp_lbl_nb, imp_lbl_b, X_phase_nb, X_phase_b, X_phase, 42)
+
+    # run pca within roi
+    # return shape: n_epochs, n_times
+    X_phase_nb_adj_pc = pca(X_phase_nb_adj)
+    X_phase_nb_n_pc = pca(X_phase_nb_n)
+    X_phase_b_adj_pc = pca(X_phase_b_adj)
+    X_phase_b_n_pc = pca(X_phase_b_n)
+    X_phase_baseline_pc = pca(X_phase_baseline)
+
+    # estimate phase angle
+    # return shape: n_foi, n_epochs
+    ang_nb_adj = get_fft_phase(X_phase_nb_adj_pc, foi, sfreq)
+    ang_nb_n = get_fft_phase(X_phase_nb_n_pc, foi, sfreq)
+    ang_b_adj = get_fft_phase(X_phase_b_adj_pc, foi, sfreq)
+    ang_b_n = get_fft_phase(X_phase_b_n_pc, foi, sfreq)
+    ang_baseline = get_fft_phase(X_phase_baseline_pc, foi, sfreq)
+
+    # compute static itpc and phase angle
+    vl_nb_adj, va_nb_adj = compute_phase_vector(ang_nb_adj)
+    vl_nb_n, va_nb_n = compute_phase_vector(ang_nb_n)
+    vl_b_adj, va_b_adj= compute_phase_vector(ang_b_adj)
+    vl_b_n, va_b_n = compute_phase_vector(ang_b_n)
+    vl_base, va_base = compute_phase_vector(ang_baseline)
+
+    # plot and save static itpc
+    plot_vl(vl_nb_adj, 
+            vl_nb_n, 
+            vl_b_adj, 
+            vl_b_n, 
+            vl_base, 
+            foi, 
+            title=f'subject-{subject}-{roi_name}: Phase Consistency across Frequencies',
+            save_path=f"subject-{subject}_vl_{roi_name}.png")
+
+    # compute relative phase
+    rva_nb_adj_n = compute_relative_phase(va_nb_adj, va_nb_n)
+    rva_b_adj_n = compute_relative_phase(va_b_adj, va_b_n)
+
+    # plot and save relative phase
+    plot_va(rva_b_adj_n,
+            rva_nb_adj_n,
+            foi, 
+            labels=['B: Adjective vs. Noun', 
+                    'NB: Adjective vs. Noun'],
+            colors=[ '#FF8C00', '#4682B4'],
+            highlight_freqs=[(4, 7), (7, 12), (13, 20)],
+            highlight_colors=['black', 'red', 'gray'],
+            highlight_markers=["^", "s", "D"],
+            title=f'subject-{subject}-{roi_name}: Relative Phase Distribution',
+            save_path=f"subject-{subject}_rva_{roi_name}.png")
+
+
 
