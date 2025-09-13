@@ -8,13 +8,15 @@ import mne
 from mne.beamformer import make_lcmv, apply_lcmv_epochs
 import os
 import os.path as op
+import matplotlib
+#matplotlib.use('Agg')   # use non-interactive backend
 import matplotlib.pyplot as plt
 
 # silence mne
 mne.set_log_level('warning')
 
 # define subject and session
-subject ='01'
+subject ='02'
 session_01 = '01'
 session_02 = '02'
 
@@ -223,11 +225,14 @@ data_cov_phas_ses02 = mne.compute_covariance(epochs_phas_lcmv_ses02,
                                        tmin=-1.25, tmax=0.,method='empirical', rank='info')
 
 # visualize data covariance matrices
-#mne.viz.plot_cov(data_cov_clas, info=epochs_clas.info)
-#input("Check data covariance matrix for classification, then close visualization by pressing ENTER ...")
-
-#mne.viz.plot_cov(data_cov_phas, info=epochs_phas.info)
-#input("Check data covariance matrix for phase estimation, then close visualization by pressing ENTER ...")
+mne.viz.plot_cov(data_cov_clas_ses01, info=epochs_clas_lcmv_ses01.info)
+input("Check session 1 data covariance matrix for classification, then close visualization by pressing ENTER ...")
+mne.viz.plot_cov(data_cov_clas_ses02, info=epochs_clas_lcmv_ses02.info)
+input("Check session 2 data covariance matrix for classification, then close visualization by pressing ENTER ...")
+mne.viz.plot_cov(data_cov_phas_ses01, info=epochs_phas_lcmv_ses01.info)
+input("Check session 1 data covariance matrix for phase estimation, then close visualization by pressing ENTER ...")
+mne.viz.plot_cov(data_cov_phas_ses02, info=epochs_phas_lcmv_ses02.info)
+input("Check session 2 data covariance matrix for phase estimation, then close visualization by pressing ENTER ...")
 
 '''
 from mne import compute_rank
@@ -290,7 +295,7 @@ def compute_beamformer(epochs, fwd, data_cov, noise_cov):
         reg=0.05, 
         noise_cov=noise_cov,
         pick_ori='max-power', 
-        rank=None,
+        rank='info',
         weight_norm='unit-noise-gain',
     )
     
@@ -300,12 +305,16 @@ filters_clas_ses01 = compute_beamformer(epochs_clas_lcmv_ses01, fwd_ses01, data_
 filters_phas_ses01 = compute_beamformer(epochs_phas_lcmv_ses01, fwd_ses01, data_cov_phas_ses01, noise_cov_phas_ses01)
 print('beamformers computed for session 1!')
 
+input('wait')
+
 filters_clas_ses02 = compute_beamformer(epochs_clas_lcmv_ses02, fwd_ses02, data_cov_clas_ses02, noise_cov_clas_ses02)
 filters_phas_ses02 = compute_beamformer(epochs_phas_lcmv_ses02, fwd_ses02, data_cov_phas_ses02, noise_cov_phas_ses02)
 print('beamformers computed for session 2!')
 
 del epochs_clas_lcmv_ses01
 del epochs_clas_lcmv_ses02
+
+input('wait')
 
 # drop baseline data
 epochs_train_ses01 = epochs_train_ses01.crop(tmin=0)
