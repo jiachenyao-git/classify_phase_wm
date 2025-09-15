@@ -423,15 +423,15 @@ def categorize_phase_by_label(imp_lbl_nb, imp_lbl_b, X_phase_nb, X_phase_b, X_ph
                 len(X_phase_b_n))
     
     # sub-sample trial index
-    nb_idx_ds = rng.choice(len(X_phase_nb_adj), size=n_min, replace=False)
-    n_idx_ds = rng.choice(len(X_phase_nb_n), size=n_min, replace=False)
+    nb_adj_idx_ds = rng.choice(len(X_phase_nb_adj), size=n_min, replace=False)
+    nb_n_idx_ds = rng.choice(len(X_phase_nb_n), size=n_min, replace=False)
     b_adj_idx_ds = rng.choice(len(X_phase_b_adj), size=n_min, replace=False)
     b_n_idx_ds = rng.choice(len(X_phase_b_n), size=n_min, replace=False)
     baseline_idx = rng.choice(len(X_phase), size=n_min, replace=False)
 
     # sub-sample the phase trials
-    X_phase_nb_adj_ds = X_phase_nb_adj[nb_idx_ds, :, :]
-    X_phase_nb_n_ds   = X_phase_nb_n[n_idx_ds, :, :]
+    X_phase_nb_adj_ds = X_phase_nb_adj[nb_adj_idx_ds, :, :]
+    X_phase_nb_n_ds   = X_phase_nb_n[nb_n_idx_ds, :, :]
     X_phase_b_adj_ds  = X_phase_b_adj[b_adj_idx_ds, :, :]
     X_phase_b_n_ds    = X_phase_b_n[b_n_idx_ds, :, :]
     X_phase_ds   = X_phase[baseline_idx, :, :]
