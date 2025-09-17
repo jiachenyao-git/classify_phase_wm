@@ -1,5 +1,8 @@
 '''
-Compute inverse models
+Compute inverse models and run decoding in the source space
+
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
 
 '''
 globals().clear()

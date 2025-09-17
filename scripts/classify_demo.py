@@ -1,4 +1,7 @@
-'''Classification demo
+'''Demonstration script for classification  rational
+
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
 
 '''
 globals().clear()

@@ -5,6 +5,9 @@ This script uses the registered electrode locations (.p3d file) to make individu
 
 For each subject:
     2 session of digitization
+   
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
 
 '''
 import numpy as np

@@ -1,5 +1,7 @@
-'''Check signal quality and mark bad channels
+'''Preprocess EEG signal. Check signal quality and mark bad channels
 
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
 '''
 globals().clear()
 

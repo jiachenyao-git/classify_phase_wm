@@ -2,6 +2,10 @@
 Make BEM from reconstructed MRI
 
 This script runs in terminal. It requires freesurfer installation, and individual MRI structural scans
+
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
+
 '''
 
 '''

@@ -1,8 +1,8 @@
 '''Create epochs
 This script creates stimulus-locked and impulse locked epochs using auto rejection criterials and robust z-score values.
 
-The following pipeline is followed:
-    1. 
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
 
 '''
 globals().clear()

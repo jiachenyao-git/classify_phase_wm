@@ -1,4 +1,7 @@
-'''Temporal generalization
+'''Decoding in temporal generalization fashion
+
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
 
 '''
 globals().clear()

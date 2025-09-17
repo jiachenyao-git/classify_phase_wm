@@ -3,6 +3,9 @@ Decoding
 
 This script contains the functions used for decoding in the source space
 
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
+
 '''
 import random
 import scipy
@@ -552,7 +555,7 @@ def plot_va(rva_1, rva_2,
         
         ax.scatter(phase_vals, radii, color=color, alpha=alpha, s=marker_size, label=label)
         
-        for (frange, hcolor, hmarker) in zip(highlight_freqs, highlight_colors):
+        for (frange, hcolor, hmarker) in zip(highlight_freqs, highlight_colors, highlight_markers):
             in_range = (foi >= frange[0]) & (foi <= frange[1])
             if np.any(in_range):
                 ax.scatter(phase_vals[in_range], 

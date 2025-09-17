@@ -2,8 +2,8 @@
 
 Paths, file names, and variables shared between Python scripts.
 
-AUTHOR: Jiachen Yao <jasonyao0703@gmail.com>
-LICENCE: 
+AUTHOR: Jiachen Yao <jasonyao0703[at]gmail.com>
+LICENCE: BSD 3-clause
 
 '''
 # path setuo
